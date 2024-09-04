@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+
+import errno
+import re
+import sys
+from typing import List
+from threading import Thread
+import subprocess
+
+# {{
+class ReturnableThread(Thread):
+    def __init__(self, target, args):
+        Thread.__init__(self)
+        self.target = target
+        self.args = args
+        self.result = None
+    
+    def run(self) -> None:
+        self.result = self.target(*self.args)
+# }}
+
+# {{
+class Error():
+    def __init__(self, code_error: int, message: str) -> None:
+        pass
+
+class ErrorHandler():
+    instance = None
+    __errors_stack = []
+    
+    def __call__(cls):
+        if cls.instance is None:
+            cls.instance = super().__call__()
+        
+        return cls.instance
+    
+    def add(self, message: str, code_error: int) -> None:
+        self.__errors_stack.append(Error(message, code_error))
+    
+    def has_any_errors(self) -> bool:
+        return len(self.__errors_stack)
+    
+    def clean_stack(self) -> None:
+        self.__errors_stack.clear()
+# }}
+
+# {{
+class File():
+    def __init__(self, name: str, content: str = '') -> None:
+        self.name = name
+        self.content = content
+
+    @staticmethod
+    def generateFile(name: str, content: str = '') -> None:
+        for subclass in File.__subclasses__():
+            match = re.findall(subclass.Regex, content)
+            if len(match) > 0:
+                return subclass(name,  content)
+
+    @property
+    def name(self) -> str:
+        return self.__name
+    
+    @property
+    def content(self) -> str:
+        return self.__content
+    
+    @content.setter
+    def content(self, newContet: str) -> None:
+        self.__content = newContet
+    
+    @name.setter
+    def name(self, newName: str) -> None:
+        self.__name = newName
+# }}
+
+# {{
+class Class(File):
+    Regex: str = '(abstract\s+)?class\s+\w+'
+    # TODO: get Methods
+    # TODO: get Attributes
+    pass
+
+class Trait(File):
+    Regex: str = 'trait\s+\w+'
+    # TODO: get Methods
+    # TODO: get Attributes
+    pass
+
+class Enum(File):
+    Regex: str = 'enum\s+\w+'
+    # TODO: get Methods
+    # TODO: get Attributes
+    pass
+
+class Interface(File):
+    Regex: str = 'interface\s+\w+'
+    # TODO: get Methods
+    # TODO: get Attributes
+    pass
+# }}
+
+# {{
+class Method():
+    Regex: str = '(\w+\s+|)(public|protected|private)(\s+\w+\s+|\s+)function\s+(\w+)\s*\(([^)]*)\)\s*(:\s*\??\s*(\w+))?'
+    
+class Attribute():
+    Regex: str = '(public|protected|private|abstract|readonly)\s*(static\s+)?(\w+)\s*\$([\w_]+)\s*'
+# }}
+
+# {{
+def get_files_to_be_commited() -> List[str]:
+    output_git = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+        stdout=subprocess.PIPE,
+        universal_newlines=True
+    )
+    
+    return output_git.stdout.splitlines()
+
+def filter_files_by_extensions(files: List[str], extensions_available: List[str]) -> List[str]:
+    return [file for file in files if file.endswith(extensions_available)]
+
+def read_file(filename: str) -> str:
+    try:
+        file = open(filename, 'r')
+        content = file.read()
+        file.close()
+
+        return content
+    except Exception as e:
+        ErrorHandler().add(e, errno.EACCES)
+        return None
+
+def read__content_files(filesNames: List[str]) -> List[str]:
+    threads = []
+    
+    for filename in filesNames:
+        thread = ReturnableThread(read_file, (filename,))
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+    
+    return [thread.result for thread in threads]
+# }}
+
+
+# MAIN
+if __name__ == "__main__" :
+    error_handler = ErrorHandler()
+    extensions_available = ('.php',)
+    
+    fileNames = get_files_to_be_commited()
+    fileNames = filter_files_by_extensions(fileNames, extensions_available)
+
+    content = read__content_files(fileNames)
+    
+    # If there is an error, it stops the process and displays the error.
+    if error_handler.has_any_errors():
+        error_handler.clean_stack()
+        sys.exit(1)
+    
+    files = [
+        File.generateFile(fileNames[index], content[index]) 
+        for index in range(0, len(content)) 
+        if content[index] != None
+    ]
+    
