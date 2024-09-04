@@ -52,9 +52,8 @@ class Shell(metaclass=SingletonMeta):
     def colors(self) -> enum.Enum :
         return self.__colors
     
-    def echo(self, message: str, color: enum = None) -> None:
+    def echo(self, message: str) -> None:
         print(message)
-        # print(f"{self.colors.WARNING.value}Warning: No active frommets remain. Continue?{self.colors.ENDC.value}")
 # }}
 
 # {{
@@ -129,8 +128,6 @@ class File():
             shell.echo(f"{self.name} has comment after the <?php")
         else:
             shell.echo(f"{self.name} hasn't comment after the <?php")
-        
-        # print([element.Regex for element in self.Elements])
     
     def __has_main_comment(self) -> bool:
         regex_comment_file = f"<\?php\n{Comment.Regex}"
@@ -147,32 +144,24 @@ class File():
 class Class(File):
     Regex: str = '(abstract\s+)?class\s+\w+'
     Elements = [Attribute, Method]
-    pass
 
 class Trait(File):
     Regex: str = 'trait\s+\w+'
     Elements = [Attribute, Method]
-    pass
 
 class Enum(File):
     Regex: str = 'enum\s+\w+'
     Elements = [Attribute, Method]
-    # TODO: get Methods
-    # TODO: get Attributes
-    pass
 
 class Interface(File):
     Regex: str = 'interface\s+\w+'
     Elements = [Attribute, Method]
-    pass
 # }}
 
 
 # {{
 class Comment():
     Regex: str = '\/\*[\s\S]*?\*\/'
-    # '((?:#|\/\/)([^\r\n]*)|\/\*([\s\S]*?)\*\/)'
-
 # }}
 
 # {{
@@ -228,8 +217,7 @@ if __name__ == "__main__" :
     # If there is an error, it stops the process and displays the error.
     if error_handler.has_any_errors():
         error_handler.clean_stack()
-        # print(f"{bcolors.WARNING.value}Warning: No active frommets remain. Continue?{bcolors.ENDC.value}")
-        # sys.exit(1)
+        sys.exit(1)
     
     files = [
         File.generateFile(fileNames[index], content[index]) 
