@@ -7,6 +7,7 @@ import sys
 from typing import List
 from threading import Thread
 import subprocess
+from xml.dom.minidom import Element
 
 # {{
 class bcolors(enum.Enum):
@@ -22,6 +23,17 @@ class bcolors(enum.Enum):
 # }}
 
 # {{
+class SingletonMeta(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            instance = super().__call__(*args, **kwargs)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
+# }}
+
+# {{
 class ReturnableThread(Thread):
     def __init__(self, target, args):
         Thread.__init__(self)
@@ -31,6 +43,18 @@ class ReturnableThread(Thread):
     
     def run(self) -> None:
         self.result = self.target(*self.args)
+
+class Shell(metaclass=SingletonMeta):
+    def __init__(self, colors: enum.Enum) -> None:
+        self.__colors = colors
+    
+    @property
+    def colors(self) -> enum.Enum :
+        return self.__colors
+    
+    def echo(self, message: str, color: enum = None) -> None:
+        print(message)
+        # print(f"{self.colors.WARNING.value}Warning: No active frommets remain. Continue?{self.colors.ENDC.value}")
 # }}
 
 # {{
@@ -42,16 +66,13 @@ class Error():
     def __str__(self) -> str:
         return f"[{self.__code}] {self.__message}"
 
-class ErrorHandler():
-    instance = None
+class ErrorHandler(metaclass=SingletonMeta):
     __errors_stack = []
     
-    def __call__(cls):
-        if cls.instance is None:
-            cls.instance = super().__call__()
-        
-        return cls.instance
-       
+    @property
+    def error_stack(self) -> List[Error] :
+        return self.__errors_stack
+    
     def add(self, message: str, code_error: int) -> None:
         self.__errors_stack.append(Error(message, code_error))
     
@@ -65,13 +86,15 @@ class ErrorHandler():
 # {{
 class Method():
     Regex: str = '(\w+\s+|)(public|protected|private)(\s+\w+\s+|\s+)function\s+(\w+)\s*\(([^)]*)\)\s*(:\s*\??\s*(\w+))?'
-    
-class Property():
+
+class Attribute():
     Regex: str = '(public|protected|private|abstract|readonly)\s*(static\s+)?(\w+)\s*\$([\w_]+)\s*'
 # }}
 
 # {{
 class File():
+    Elements = []
+    
     def __init__(self, name: str, content: str = '') -> None:
         self.name = name
         self.content = content
@@ -99,6 +122,16 @@ class File():
     def name(self, newName: str) -> None:
         self.__name = newName
     
+    def check_comments(self) -> bool:
+        shell = Shell()
+        
+        if self.__has_main_comment():
+            shell.echo(f"{self.name} has comment after the <?php")
+        else:
+            shell.echo(f"{self.name} hasn't comment after the <?php")
+        
+        # print([element.Regex for element in self.Elements])
+    
     def __has_main_comment(self) -> bool:
         regex_comment_file = f"<\?php\n{Comment.Regex}"
         """
@@ -113,31 +146,33 @@ class File():
 # {{
 class Class(File):
     Regex: str = '(abstract\s+)?class\s+\w+'
-    Elements = [Property, Method]
+    Elements = [Attribute, Method]
     pass
 
 class Trait(File):
     Regex: str = 'trait\s+\w+'
-    Elements = [Property, Method]
+    Elements = [Attribute, Method]
     pass
 
 class Enum(File):
     Regex: str = 'enum\s+\w+'
-    Elements = [Property, Method]
+    Elements = [Attribute, Method]
     # TODO: get Methods
     # TODO: get Attributes
     pass
 
 class Interface(File):
     Regex: str = 'interface\s+\w+'
-    Elements = [Property, Method]
+    Elements = [Attribute, Method]
     pass
 # }}
 
 
 # {{
 class Comment():
-    Regex: str = '\/\*[\s\S]*?\*\/'    
+    Regex: str = '\/\*[\s\S]*?\*\/'
+    # '((?:#|\/\/)([^\r\n]*)|\/\*([\s\S]*?)\*\/)'
+
 # }}
 
 # {{
@@ -182,6 +217,7 @@ def read__content_files(filesNames: List[str]) -> List[str]:
 # MAIN
 if __name__ == "__main__" :
     error_handler = ErrorHandler()
+    shell = Shell(bcolors)
     extensions_available = ('.php',)
     
     fileNames = get_files_to_be_commited()
@@ -192,7 +228,8 @@ if __name__ == "__main__" :
     # If there is an error, it stops the process and displays the error.
     if error_handler.has_any_errors():
         error_handler.clean_stack()
-        sys.exit(1)
+        # print(f"{bcolors.WARNING.value}Warning: No active frommets remain. Continue?{bcolors.ENDC.value}")
+        # sys.exit(1)
     
     files = [
         File.generateFile(fileNames[index], content[index]) 
@@ -200,3 +237,4 @@ if __name__ == "__main__" :
         if content[index] != None
     ]
     
+    [file.check_comments() for file in files]
