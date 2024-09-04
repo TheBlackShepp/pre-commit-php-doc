@@ -1,11 +1,25 @@
 #!/usr/bin/env python3
 
+import enum
 import errno
 import re
 import sys
 from typing import List
 from threading import Thread
 import subprocess
+
+# {{
+class bcolors(enum.Enum):
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+# }}
 
 # {{
 class ReturnableThread(Thread):
@@ -22,7 +36,11 @@ class ReturnableThread(Thread):
 # {{
 class Error():
     def __init__(self, code_error: int, message: str) -> None:
-        pass
+        self.__code = code_error
+        self.__message = message
+    
+    def __str__(self) -> str:
+        return f"[{self.__code}] {self.__message}"
 
 class ErrorHandler():
     instance = None
@@ -33,7 +51,7 @@ class ErrorHandler():
             cls.instance = super().__call__()
         
         return cls.instance
-    
+       
     def add(self, message: str, code_error: int) -> None:
         self.__errors_stack.append(Error(message, code_error))
     
@@ -42,6 +60,14 @@ class ErrorHandler():
     
     def clean_stack(self) -> None:
         self.__errors_stack.clear()
+# }}
+
+# {{
+class Method():
+    Regex: str = '(\w+\s+|)(public|protected|private)(\s+\w+\s+|\s+)function\s+(\w+)\s*\(([^)]*)\)\s*(:\s*\??\s*(\w+))?'
+    
+class Property():
+    Regex: str = '(public|protected|private|abstract|readonly)\s*(static\s+)?(\w+)\s*\$([\w_]+)\s*'
 # }}
 
 # {{
@@ -72,40 +98,46 @@ class File():
     @name.setter
     def name(self, newName: str) -> None:
         self.__name = newName
+    
+    def __has_main_comment(self) -> bool:
+        regex_comment_file = f"<\?php\n{Comment.Regex}"
+        """
+            <?php
+            /**
+            *
+            **/ 
+        """
+        return re.match(regex_comment_file, self.content) is not None
 # }}
 
 # {{
 class Class(File):
     Regex: str = '(abstract\s+)?class\s+\w+'
-    # TODO: get Methods
-    # TODO: get Attributes
+    Elements = [Property, Method]
     pass
 
 class Trait(File):
     Regex: str = 'trait\s+\w+'
-    # TODO: get Methods
-    # TODO: get Attributes
+    Elements = [Property, Method]
     pass
 
 class Enum(File):
     Regex: str = 'enum\s+\w+'
+    Elements = [Property, Method]
     # TODO: get Methods
     # TODO: get Attributes
     pass
 
 class Interface(File):
     Regex: str = 'interface\s+\w+'
-    # TODO: get Methods
-    # TODO: get Attributes
+    Elements = [Property, Method]
     pass
 # }}
 
+
 # {{
-class Method():
-    Regex: str = '(\w+\s+|)(public|protected|private)(\s+\w+\s+|\s+)function\s+(\w+)\s*\(([^)]*)\)\s*(:\s*\??\s*(\w+))?'
-    
-class Attribute():
-    Regex: str = '(public|protected|private|abstract|readonly)\s*(static\s+)?(\w+)\s*\$([\w_]+)\s*'
+class Comment():
+    Regex: str = '\/\*[\s\S]*?\*\/'    
 # }}
 
 # {{
