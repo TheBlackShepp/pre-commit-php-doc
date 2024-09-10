@@ -1,0 +1,53 @@
+#!/usr/bin/env php
+<?php
+
+include "inc/bootstrap.php";
+
+const COMMENT = "\/\*[\s\S]*?\*\/";
+
+
+// {{
+function getFilesToBeCommitted()
+{
+    return explode("\n", shell_exec('git diff --cached --name-only --diff-filter=ACM'));
+}
+
+function filterFilesByExtensions(array $files, array $extensions)
+{
+    return array_filter($files, function ($file) use ($extensions) {
+        foreach ($extensions as $ext) {
+            if (substr($file, -strlen($ext)) === $ext) {
+                return true;
+            }
+        }
+        return false;
+    });
+}
+// }}
+
+// MAIN {{
+$extensionsAvailable = ['.php'];
+$errorHandler = ErrorHandler::getInstance();
+
+$fileNames = getFilesToBeCommitted();
+$fileNames = filterFilesByExtensions($fileNames, $extensionsAvailable);
+
+foreach ($fileNames as $fileName) {
+    try {
+        $content = FilePhp::readContent($fileName);
+    } catch (RuntimeException $e) {
+        $errorHandler->add($e->getMessage(), 13);
+        continue;
+    }
+
+    $file = FileGenerator::generateFile($fileName, $content);
+
+    PHPFileAnalyzer::analyzeFile($file);
+}
+
+# Show errors
+$errors = $errorHandler->getErrors();
+foreach ($errors as $error) {
+    Shell::getInstance()->echo($error, Colors::FAIL);
+}
+// }}
