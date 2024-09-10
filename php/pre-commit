@@ -3,9 +3,6 @@
 
 include "inc/bootstrap.php";
 
-const COMMENT = "\/\*[\s\S]*?\*\/";
-
-
 // {{
 function getFilesToBeCommitted()
 {

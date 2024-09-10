@@ -2,8 +2,7 @@
 
 abstract class FilePhp
 {
-    const REGEX_STARTED_FILE = "<\?php\n";
-    const REGEX = '';
+    const REGEX = '<\?php\n';
     const ELEMENTS = array();
 
     public readonly string $name;
@@ -13,6 +12,15 @@ abstract class FilePhp
     {
         $this->name = $name;
         $this->setContent($content);
+    }
+
+    public static function readContent(string $fileName): string
+    {
+        if (is_readable($fileName)) {
+            return file_get_contents($fileName);
+        }
+
+        throw new RuntimeException("$fileName is not readable");
     }
 
     public function setContent(string $newContent): void
@@ -25,12 +33,17 @@ abstract class FilePhp
         return $this->_content;
     }
 
-    public static function readContent(string $fileName): string
+    public function checkBeginnigComment(): bool
     {
-        if (is_readable($fileName)) {
-            return file_get_contents($fileName);
-        }
+        $regex = new Regex(self::REGEX . Comment::REGEX);
 
-        throw new RuntimeException("$fileName is not readable");
+        return $regex->hasMatch($this->getContent());
+    }
+
+    public function checkComment(): bool
+    {
+        $regex = new Regex(Comment::REGEX . "\n" . static::REGEX);
+
+        return $regex->hasMatch($this->getContent());
     }
 }
