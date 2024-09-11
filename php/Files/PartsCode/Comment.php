@@ -67,7 +67,7 @@ class Comment
     {
         $lines = explode(PHP_EOL, $this->content);
 
-        $isInTags = false;  // Para distinguir cuándo empiezan las etiquetas
+        $isInTags = false;
 
         foreach ($lines as $line) {
             $line = trim($line, "/* ");
@@ -79,12 +79,12 @@ class Comment
             if (!$isInTags && !preg_match('/^\@/', $line)) {
                 $this->title .= $line . ' ';
             } else {
-                $isInTags = true;  // Una vez que encontramos la primera etiqueta, empezamos a extraerlas
+                $isInTags = true;
                 $this->extractTag($line);
             }
         }
 
-        $this->title = trim($this->title);  // Limpiamos espacios adicionales
+        $this->title = trim($this->title);
     }
 
     /**
